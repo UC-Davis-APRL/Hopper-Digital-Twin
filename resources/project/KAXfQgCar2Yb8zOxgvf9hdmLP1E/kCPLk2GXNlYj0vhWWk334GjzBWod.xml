@@ -1,0 +1,4 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<Info File="InitialConditions.m" GroupUUID="default" Icon="" Name="InitialConditions" Type="StartUp" Visible="0">
+    <Extension Name="StartUpPrev" Value="2e71e43c-018c-4bcd-a4ac-ebdd0497e28e"/>
+</Info>
