@@ -38,7 +38,7 @@ worldHandles = get_param(transformPath, 'PortHandles');
 
 % Insert 6-DOF Joint between Transform and IMU
 sixDofPath = [modelName '/World_6DOF'];
-addBlockIfAbsent('sm_lib/Joints/6-DOF Joint', sixDofPath, 'Position', [-360   830  -300   890]);
+addBlockIfAbsent('sm_lib/Joints/6-DOF Joint', sixDofPath, 'Position', [80   775   140   835]);
 sixDofHandles = get_param(sixDofPath, 'PortHandles');
 
 addLineIfAbsent(modelName, worldHandles.RConn(1), sixDofHandles.LConn(1), 'autorouting', 'on');
@@ -51,7 +51,7 @@ imuHandles = get_param(imuSubsys, 'PortHandles');
 
 % Transform Sensor measures across the joint: base = Transform output, follower = IMU input
 sensorPath = [modelName '/TransformSensor_Body'];
-addBlockIfAbsent('sm_lib/Frames and Transforms/Transform Sensor', sensorPath, 'Position', [190 332 205 420]);
+addBlockIfAbsent('sm_lib/Frames and Transforms/Transform Sensor', sensorPath, 'Position', [-505   406  -490   494]);
 set_param(sensorPath, 'SenseXYZ', 'on', 'SenseXYZDot', 'on', 'SenseRotationSequence', 'on', ...
                        'SenseOmega', 'on', 'RotationSequence', 'XYZ');
 sensorHandles = get_param(sensorPath, 'PortHandles');
@@ -117,7 +117,7 @@ muxHandles = get_param(muxPath, 'PortHandles');
 for i = 1:numel(outputs)
     convPath = [modelName '/' outputs(i).Name];
     addBlockIfAbsent('nesl_utility/PS-Simulink Converter', convPath, ...
-        'Position', [-260 640+(i-1)*70 -300 650+(i-1)*70]);
+        'Position', [-300 640+(i-1)*70 -250 650+(i-1)*70]);
     convH = get_param(convPath, 'PortHandles');
     addLineIfAbsent(modelName, sensorHandles.RConn(outputs(i).Port), convH.LConn(1), 'autorouting', 'on');
     addLineIfAbsent(modelName, convH.Outport(1), muxHandles.Inport(i), 'autorouting', 'on');
