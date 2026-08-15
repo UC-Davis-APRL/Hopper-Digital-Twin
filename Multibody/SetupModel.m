@@ -8,26 +8,68 @@ end
 
 if bdIsLoaded(modelName), bdclose(modelName); end
 load_system(modelPath);
+
+%% Base Setup
 set_param(modelName, 'InitFcn', "addpath(fullfile(fileparts(which(bdroot)), 'cad_export'));");
 
-%% IMU Frame
+set_param(modelName, 'SimscapeLogType', 'None');
+mechConfigPath = [modelName '/MechanismConfiguration'];
+if blockExists(mechConfigPath)
+    set_param(mechConfigPath, 'UniformGravity', 'Constant', 'GravityVector', '[0,0,-9.81]');
+    fprintf('[OK] Gravity set to [0,0,-9.81] on %s\n', mechConfigPath);
+else
+    warning('SetupModel:NoMechConfig', '%s not found — gravity not set.', mechConfigPath);
+end
+
+%% 6-DOF Joint + Transform Sensor (measuring across the joint)
+transformPath = [modelName '/Transform'];
+worldHandles = get_param(transformPath, 'PortHandles');
+
 imuSubsys = 'rocket_multibody/IMU_2_RIGID';
-imuPort = [imuSubsys '/IMU_RefFrame'];
-addBlockIfAbsent('nesl_utility/Connection Port', imuPort, 'Position', [400 200 440 240]);
-refH = get_param([imuSubsys '/ReferenceFrame'], 'PortHandles');
-portH = get_param(imuPort, 'PortHandles');
-addLineIfAbsent(imuSubsys, refH.RConn(1), portH.RConn(1), 'autorouting', 'on');
 imuHandles = get_param(imuSubsys, 'PortHandles');
 
-%% Transform Sensor
+deleteAllLinesOnPort(worldHandles.RConn(1), 'Transform RConn(1)');
+deleteAllLinesOnPort(imuHandles.LConn(2), 'IMU LConn(2)');
+
+
+
+% Re-fetch after delete_line before using worldHandles again
+worldHandles = get_param(transformPath, 'PortHandles');
+
+% Insert 6-DOF Joint between Transform and IMU
+sixDofPath = [modelName '/World_6DOF'];
+addBlockIfAbsent('sm_lib/Joints/6-DOF Joint', sixDofPath, 'Position', [-360   830  -300   890]);
+sixDofHandles = get_param(sixDofPath, 'PortHandles');
+
+addLineIfAbsent(modelName, worldHandles.RConn(1), sixDofHandles.LConn(1), 'autorouting', 'on');
+addLineIfAbsent(modelName, sixDofHandles.RConn(1), imuHandles.LConn(2), 'autorouting', 'on');
+
+% Re-fetch all handles fresh after the structural changes above
+worldHandles = get_param(transformPath, 'PortHandles');
+sixDofHandles = get_param(sixDofPath, 'PortHandles');
+imuHandles = get_param(imuSubsys, 'PortHandles');
+
+% Transform Sensor measures across the joint: base = Transform output, follower = IMU input
 sensorPath = [modelName '/TransformSensor_Body'];
 addBlockIfAbsent('sm_lib/Frames and Transforms/Transform Sensor', sensorPath, 'Position', [190 332 205 420]);
 set_param(sensorPath, 'SenseXYZ', 'on', 'SenseXYZDot', 'on', 'SenseRotationSequence', 'on', ...
                        'SenseOmega', 'on', 'RotationSequence', 'XYZ');
 sensorHandles = get_param(sensorPath, 'PortHandles');
-worldHandles = get_param('rocket_multibody/Transform', 'PortHandles');
-addLineIfAbsent(modelName, worldHandles.RConn(1), sensorHandles.LConn(1), 'autorouting', 'on');
-addLineIfAbsent(modelName, sensorHandles.RConn(1), imuHandles.LConn(end), 'autorouting', 'on');
+% Branch base connection off Transform's output port (world side of 6DOF)
+if get_param(sensorHandles.LConn(1), 'Line') == -1
+    add_line(modelName, worldHandles.RConn(1), sensorHandles.LConn(1), 'autorouting', 'on');
+    fprintf('[OK]   line   Transform (branch) -> TransformSensor base\n');
+else
+    fprintf('[SKIP] line   TransformSensor base already connected\n');
+end
+
+% Branch follower connection off the 6DOF->IMU port (follower side of 6DOF)
+if get_param(sensorHandles.RConn(1), 'Line') == -1
+    add_line(modelName, sixDofHandles.RConn(1), sensorHandles.RConn(1), 'autorouting', 'on');
+    fprintf('[OK]   line   6DOF/IMU (branch) -> TransformSensor follower\n');
+else
+    fprintf('[SKIP] line   TransformSensor follower already connected\n');
+end
 
 %% Revolutes (alpha, beta)
 jointNames = {'Revolute1', 'Revolute2'};
@@ -69,20 +111,20 @@ end
 outputs = struct('Name', {'PS_XYZ', 'PS_XYZDot', 'PS_Rotation', 'PS_Omega'}, 'Port', {4, 5, 2, 3});
 
 muxPath = [modelName '/TransformSensor_Mux'];
-addBlockIfAbsent('simulink/Signal Routing/Mux', muxPath, 'Inputs', '4', 'Position', [400 380 430 500]);
+addBlockIfAbsent('simulink/Signal Routing/Mux', muxPath, 'Inputs', '4', 'Position', [-110   680   -80   800]);
 muxHandles = get_param(muxPath, 'PortHandles');
 
 for i = 1:numel(outputs)
     convPath = [modelName '/' outputs(i).Name];
     addBlockIfAbsent('nesl_utility/PS-Simulink Converter', convPath, ...
-        'Position', [260 330+(i-1)*70 300 360+(i-1)*70]);
+        'Position', [-260 640+(i-1)*70 -300 650+(i-1)*70]);
     convH = get_param(convPath, 'PortHandles');
     addLineIfAbsent(modelName, sensorHandles.RConn(outputs(i).Port), convH.LConn(1), 'autorouting', 'on');
     addLineIfAbsent(modelName, convH.Outport(1), muxHandles.Inport(i), 'autorouting', 'on');
 end
 
 outPath = [modelName '/X'];
-addBlockIfAbsent('simulink/Sinks/Out1', outPath, 'Position', [500 420 530 450]);
+addBlockIfAbsent('simulink/Sinks/Out1', outPath, 'Position', [-25   725     5   755]);
 outH = get_param(outPath, 'PortHandles');
 addLineIfAbsent(modelName, muxHandles.Outport(1), outH.Inport(1), 'autorouting', 'on');
 
@@ -118,7 +160,7 @@ port = get_param(motorPath, 'PortHandles')
 addLineIfAbsent(gimbalPath, forceH.RConn(1), port.LConn(2), 'autorouting', 'on')
 
 fPort2Path = [modelName '/' 'In_MotorForce']
-addBlockIfAbsent('simulink/Sources/In1', fPort2Path, 'Position', [405   400   445   430])
+addBlockIfAbsent('simulink/Sources/In1', fPort2Path, 'Position', [90   145   130   175])
 fPort2H = get_param(fPort2Path, 'PortHandles');
 
 gimbalHandles = get_param(gimbalPath, 'PortHandles');
@@ -130,8 +172,29 @@ addLineIfAbsent( ...
     'autorouting', 'on');
 
 
+%% Fix PS Converter input derivatives (Alpha/Beta gimbal commands)
+psConvertersNeedingDerivs = {'PS_Alpha', 'PS_Beta'};
+filterTimeConstant = '1e-3';   % adjust based on your control bandwidth
+
+for i = 1:numel(psConvertersNeedingDerivs)
+    convPath = [gimbalPath '/' psConvertersNeedingDerivs{i}];
+    if blockExists(convPath)
+        set_param(convPath, ...
+            'FilteringAndDerivatives', 'filter', ...
+            'InputFilterTimeConstant', filterTimeConstant);
+        fprintf('[OK] Input filtering enabled on %s\n', convPath);
+    else
+        warning('SetupModel:NoPSConverter', '%s not found.', convPath);
+    end
+end
+
+
 save_system(modelName);
-open_system(modelPath);
+
+BuildLibrary
+
+
+
 
 %% Local helper functions
 
@@ -176,4 +239,42 @@ try
 catch
     tf = false;
 end
+end
+
+function deleteAllLinesOnPort(portHandle, label)
+% Deletes the primary line on a port AND any branch lines hanging off it.
+    ln = get_param(portHandle, 'Line');
+    if ln == -1
+        fprintf('[SKIP] no line on %s\n', label);
+        return;
+    end
+
+    linesToDelete = collectLineAndBranches(ln, containers.Map('KeyType','double','ValueType','logical'));
+
+    % Delete children before parents so we don't hit invalid-handle errors
+    % from a parent delete cascading and removing its own children first.
+    for i = numel(linesToDelete):-1:1
+        try
+            delete_line(linesToDelete(i));
+            fprintf('[OK]   deleted line %g on %s\n', linesToDelete(i), label);
+        catch ME
+            fprintf('[FAIL] could not delete line %g on %s -- %s\n', linesToDelete(i), label, ME.message);
+        end
+    end
+end
+
+function allLines = collectLineAndBranches(lineHandle, visited)
+% Recursively gathers a line and all of its branch children.
+% Guards against cycles using a visited-set keyed on line handle.
+    if isKey(visited, lineHandle)
+        allLines = [];   % already visited -- stop here, avoid infinite loop
+        return;
+    end
+    visited(lineHandle) = true;
+
+    allLines = lineHandle;
+    children = get_param(lineHandle, 'LineChildren');
+    for i = 1:numel(children)
+        allLines = [allLines, collectLineAndBranches(children(i), visited)]; %#ok<AGROW>
+    end
 end
