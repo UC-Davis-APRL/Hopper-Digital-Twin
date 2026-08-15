@@ -191,8 +191,6 @@ end
 
 save_system(modelName);
 
-BuildLibrary
-
 
 
 
