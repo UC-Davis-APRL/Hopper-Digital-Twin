@@ -5,9 +5,11 @@ parentPath = fullfile(BaseDir, [parentModel '.slx']);
 
 
 libDir = [BaseDir '/' 'Multibody']
-libName = 'rocket_multibody_lib.slx';
+libName = 'rocket_multibody_lib';
 libPath = fullfile(libDir, libName);
 libSubsysName = 'rocket_multibody'; 
+
+addpath(libDir);
 
 paramsDir = [BaseDir '/' 'Params']
 paramsFile = 'RocketParameter.m'

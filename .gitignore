@@ -1,0 +1,49 @@
+# MATLAB / Simulink default ignores
+# Generated files and temporary artifacts
+
+# Windows / macOS metadata
+.DS_Store
+Thumbs.db
+
+# MATLAB project metadata
+*.asv
+*.m~
+*.mex*
+*.p
+*.slxc
+*.mdl
+*.mat
+*.autosave
+*.rpt
+*.log
+*.out
+*.tmp
+*.bak
+*.orig
+
+# Simulink cache / generated files
+slprj/
+**/slprj/
+*_grt_rtw/
+*_ert_rtw/
+*_sfun/
+**/*.slxc
+**/*.slx.autosave
+**/*.bak
+
+resources/
+
+# Build / compiled outputs
+*.exe
+*.dll
+*.so
+*.o
+*.obj
+*.a
+*.lib
+*.app
+
+# MATLAB editor / IDE temp files
+*.mltbx
+*.mlappinstall
+*.mldatx
