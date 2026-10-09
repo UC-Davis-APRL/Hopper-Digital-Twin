@@ -47,3 +47,6 @@ resources/
 *.mltbx
 *.mlappinstall
 *.mldatx
+
+Multibody/cad_export/
+Multibody/cad_export_backup/
