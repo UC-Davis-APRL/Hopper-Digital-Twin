@@ -130,11 +130,19 @@ omega = [p;q;r];
 
 tau_thrust = cross(rT,FT);
 
+%Correct the gimbal torque block...
+% tau_tvc = [
+%     Jalpha*alphaddot;
+%     Jbeta*betaddot*cos(alpha);
+%     Jbeta*betaddot*sin(alpha)
+%     ];
+%Correct the gimbal torque block...
 tau_tvc = [
     Jalpha*alphaddot;
     Jbeta*betaddot*cos(alpha);
-    Jbeta*betaddot*sin(alpha)
+    -Jbeta*betaddot*sin(alpha)
     ];
+
 
 tau = tau_thrust + tau_tvc;
 
